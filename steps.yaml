@@ -1,0 +1,64 @@
+for each service
+- apt install curl -y
+install nodejs:
+- curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+- nvm install 22
+- sudo apt install nano
+
+install wazuh agent:
+- create node.py
+- create node.js
+- create switch_server.py
+- npm install express
+- npm install uuid
+- npm install moment
+- apt install python3-aiohttp
+- apt install python3-requests
+- python3 switch_server.py
+
+ips: node0 - 10.151.101.203, node1 - 10.151.101.197, node2 - 10.151.101.179, node3 - 10.151.101.192, node4 - 10.151.101.152
+
+in prometheus:
+- nano /etc/prometheus/prometheus.yml
+- add ips to targets
+- create log_metrics_tp2.py
+- nano /var/ossec/etc/ossec.conf
+- <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/trust_check.log</location>
+  </localfile>
+- create /var/ossec/active-response/bin/switch_be.sh
+
+in wazuh manager:
+- nano /var/ossec/etc/decoders/local_decoder.xml
+- <decoder name="intruder">
+    <prematch>Intruder</prematch>
+  </decoder>
+
+  <decoder name="intruder_child">
+    <parent>intruder</parent>
+    <regex offset="after_parent">: Node (\.+) sent to many wrong values</regex>
+    <order>id</order>
+  </decoder>
+- nano /var/ossec/etc/rules/local_rules.xml
+- <group name="intruder">
+    <rule id="100025" level="10">
+      <decoded_as>intruder</decoded_as>
+      <description>Node $(id) sent to many wrong values</description>
+    </rule>
+  </group>
+- nano /var/ossec/etc/ossec.conf
+- <command>
+    <name>switch_be</name>
+    <executable>switch_be.sh</executable>
+    <timeout_allowed>yes</timeout_allowed>
+  </command>
+
+  <active-response>
+    <disabled>no</disabled>
+    <command>switch_be</command>
+    <location>local</location>
+    <rules_id>100025</rules_id>
+    <timeout>10</timeout>
+  </active-response>
+- systemctl restart wazuh-manager
